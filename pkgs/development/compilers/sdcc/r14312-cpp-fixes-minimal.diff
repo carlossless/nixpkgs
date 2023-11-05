@@ -1,0 +1,135 @@
+--- src/support/cpp/gcc/diagnostic.cc	(revision 14311)
++++ src/support/cpp/gcc/diagnostic.cc	(revision 14312)
+@@ -2024,7 +2022,7 @@
+   if (global_dc->printer == NULL)
+     {
+       /* Print the error message.  */
+-      fnotice (stderr, diagnostic_kind_text[DK_ICE]);
++      fnotice (stderr, "%s", diagnostic_kind_text[DK_ICE]);
+       fnotice (stderr, "in %s, at %s:%d", function, trim_filename (file), line);
+       fputc ('\n', stderr);
+ 
+--- src/support/cpp/gcc/gcc.cc	(revision 14311)
++++ src/support/cpp/gcc/gcc.cc	(revision 14312)
+@@ -7783,16 +7776,18 @@
+ 	       char **out_file, char **err_file)
+ {
+   int i, status;
++  ssize_t ret;
+   int fd = open (*out_file, O_RDWR | O_APPEND);
+   if (fd < 0)
+     return;
+-  write (fd, "\n//", 3);
++  ret = write (fd, "\n//", 3);
+   for (i = 0; i < nargs; i++)
+     {
+-      write (fd, " ", 1);
+-      write (fd, new_argv[i], strlen (new_argv[i]));
++      ret = write (fd, " ", 1);
++      ret = write (fd, new_argv[i], strlen (new_argv[i]));
+     }
+-  write (fd, "\n\n", 2);
++  ret = write (fd, "\n\n", 2);
++  (void)ret;
+   close (fd);
+   new_argv[nargs] = "-E";
+   new_argv[nargs + 1] = NULL;
+@@ -10569,14 +10563,14 @@
+ get_random_number (void)
+ {
+   unsigned HOST_WIDE_INT ret = 0;
+-  int fd; 
++  int fd;
+ 
+-  fd = open ("/dev/urandom", O_RDONLY); 
++  fd = open ("/dev/urandom", O_RDONLY);
+   if (fd >= 0)
+     {
+-      read (fd, &ret, sizeof (HOST_WIDE_INT));
++      ssize_t r = read (fd, &ret, sizeof (HOST_WIDE_INT));
+       close (fd);
+-      if (ret)
++      if (ret && r == sizeof (HOST_WIDE_INT))
+         return ret;
+     }
+ 
+--- src/support/cpp/libcpp/expr.cc	(revision 14311)
++++ src/support/cpp/libcpp/expr.cc	(revision 14312)
+@@ -799,26 +799,25 @@
+       if ((result & CPP_N_WIDTH) == CPP_N_LARGE
+ 	  && CPP_OPTION (pfile, cpp_warn_long_long))
+         {
+-          const char *message = CPP_OPTION (pfile, cplusplus) 
+-				? N_("use of C++11 long long integer constant")
+-		                : N_("use of C99 long long integer constant");
++          const char *message = CPP_OPTION (pfile, cplusplus)
++                                ? N_("use of C++11 long long integer constant")
++                                : N_("use of C99 long long integer constant");
+ 
+-	  if (CPP_OPTION (pfile, c99))
+-            cpp_warning_with_line (pfile, CPP_W_LONG_LONG, virtual_location,
+-				   0, message);
++          if (CPP_OPTION (pfile, c99))
++            cpp_warning_with_line (pfile, CPP_W_LONG_LONG,
++                                   virtual_location, 0, "%s", message);
+           else
+             cpp_pedwarning_with_line (pfile, CPP_W_LONG_LONG,
+-				      virtual_location, 0, message);
++                                      virtual_location, 0, "%s", message);
+         }
+ 
+-      if ((result & CPP_N_SIZE_T) == CPP_N_SIZE_T
+-	  && !CPP_OPTION (pfile, size_t_literals))
++      if ((result & CPP_N_SIZE_T) == CPP_N_SIZE_T && !CPP_OPTION (pfile, size_t_literals))
+        {
+-	  const char *message = (result & CPP_N_UNSIGNED) == CPP_N_UNSIGNED
+-				? N_("use of C++23 %<size_t%> integer constant")
+-				: N_("use of C++23 %<make_signed_t<size_t>%> integer constant");
+-	  cpp_warning_with_line (pfile, CPP_W_SIZE_T_LITERALS,
+-				 virtual_location, 0, message);
++          const char *message = (result & CPP_N_UNSIGNED) == CPP_N_UNSIGNED
++                                ? N_("use of C++23 %<size_t%> integer constant")
++                                : N_("use of C++23 %<make_signed_t<size_t>%> integer constant");
++          cpp_warning_with_line (pfile, CPP_W_SIZE_T_LITERALS,
++                                 virtual_location, 0, "%s", message);
+        }
+ 
+       result |= CPP_N_INTEGER;
+--- src/support/cpp/libcpp/macro.cc	(revision 14311)
++++ src/support/cpp/libcpp/macro.cc	(revision 14312)
+@@ -183,7 +183,7 @@
+ 	if (m_state == 2 && token->type == CPP_PASTE)
+ 	  {
+ 	    cpp_error_at (m_pfile, CPP_DL_ERROR, token->src_loc,
+-			  vaopt_paste_error);
++			  "%s", vaopt_paste_error);
+ 	    return ERROR;
+ 	  }
+ 	/* Advance states before further considering this token, in
+@@ -212,7 +212,7 @@
+ 		if (was_paste)
+ 		  {
+ 		    cpp_error_at (m_pfile, CPP_DL_ERROR, token->src_loc,
+-				  vaopt_paste_error);
++				  "%s", vaopt_paste_error);
+ 		    return ERROR;
+ 		  }
+ 
+@@ -3701,7 +3701,7 @@
+ 	     function-like macros, but not at the end.  */
+ 	  if (following_paste_op)
+ 	    {
+-	      cpp_error (pfile, CPP_DL_ERROR, paste_op_error_msg);
++	      cpp_error (pfile, CPP_DL_ERROR, "%s", paste_op_error_msg);
+ 	      goto out;
+ 	    }
+ 	  if (!vaopt_tracker.completed ())
+@@ -3716,7 +3716,7 @@
+ 	     function-like macros, but not at the beginning.  */
+ 	  if (macro->count == 1)
+ 	    {
+-	      cpp_error (pfile, CPP_DL_ERROR, paste_op_error_msg);
++	      cpp_error (pfile, CPP_DL_ERROR, "%s", paste_op_error_msg);
+ 	      goto out;
+ 	    }
+ 
