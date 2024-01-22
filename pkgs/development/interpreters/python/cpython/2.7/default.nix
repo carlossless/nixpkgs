@@ -133,6 +133,11 @@ let
 
     ] ++ lib.optionals (x11Support && stdenv.isDarwin) [
       ./use-correct-tcl-tk-on-darwin.patch
+
+    ] ++ lib.optionals stdenv.isDarwin [
+      # Fix darwin build https://bugs.python.org/issue34027
+      ../3.7/darwin-libutil.patch
+
     ] ++ lib.optionals stdenv.isLinux [
 
       # Disable the use of ldconfig in ctypes.util.find_library (since
@@ -339,7 +344,7 @@ in with passthru; stdenv.mkDerivation ({
       '';
       license = lib.licenses.psfl;
       platforms = lib.platforms.all;
-      maintainers = with lib.maintainers; [ fridh thiagokokada ];
+      maintainers = with lib.maintainers; [ fridh ];
       knownVulnerabilities = [
         "Python 2.7 has reached its end of life after 2020-01-01. See https://www.python.org/doc/sunset-python-2/."
         # Quote: That means that we will not improve it anymore after that day,

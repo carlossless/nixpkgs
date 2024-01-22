@@ -5,7 +5,9 @@ let
   preseedFormat = pkgs.formats.yaml { };
 in
 {
-  meta.maintainers = [ lib.maintainers.adamcstephens ];
+  meta = {
+    maintainers = lib.teams.lxc.members;
+  };
 
   options = {
     virtualisation.incus = {
@@ -17,9 +19,9 @@ in
         {command}`incus` command line tool, among others.
       '');
 
-      package = lib.mkPackageOptionMD pkgs "incus" { };
+      package = lib.mkPackageOption pkgs "incus" { };
 
-      lxcPackage = lib.mkPackageOptionMD pkgs "lxc" { };
+      lxcPackage = lib.mkPackageOption pkgs "lxc" { };
 
       preseed = lib.mkOption {
         type = lib.types.nullOr (
@@ -148,10 +150,12 @@ in
       after = [
         "network-online.target"
         "lxcfs.service"
-      ] ++ (lib.optional cfg.socketActivation "incus.socket");
+        "incus.socket"
+      ];
       requires = [
         "lxcfs.service"
-      ] ++ (lib.optional cfg.socketActivation "incus.socket");
+        "incus.socket"
+      ];
       wants = [
         "network-online.target"
       ];
@@ -181,7 +185,7 @@ in
       };
     };
 
-    systemd.sockets.incus = lib.mkIf cfg.socketActivation {
+    systemd.sockets.incus = {
       description = "Incus UNIX socket";
       wantedBy = [ "sockets.target" ];
 
@@ -189,7 +193,6 @@ in
         ListenStream = "/var/lib/incus/unix.socket";
         SocketMode = "0660";
         SocketGroup = "incus-admin";
-        Service = "incus.service";
       };
     };
 

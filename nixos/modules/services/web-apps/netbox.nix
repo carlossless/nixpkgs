@@ -257,9 +257,7 @@ in {
       ensureUsers = [
         {
           name = "netbox";
-          ensurePermissions = {
-            "DATABASE netbox" = "ALL PRIVILEGES";
-          };
+          ensureDBOwnership = true;
         }
       ];
     };
@@ -269,6 +267,7 @@ in {
     systemd.targets.netbox = {
       description = "Target for all NetBox services";
       wantedBy = [ "multi-user.target" ];
+      wants = [ "network-online.target" ];
       after = [ "network-online.target" "redis-netbox.service" ];
     };
 
@@ -319,7 +318,7 @@ in {
 
         serviceConfig = defaultServiceConfig // {
           ExecStart = ''
-            ${pkgs.python3Packages.gunicorn}/bin/gunicorn netbox.wsgi \
+            ${pkg.gunicorn}/bin/gunicorn netbox.wsgi \
               --bind ${cfg.listenAddress}:${toString cfg.port} \
               --pythonpath ${pkg}/opt/netbox/netbox
           '';

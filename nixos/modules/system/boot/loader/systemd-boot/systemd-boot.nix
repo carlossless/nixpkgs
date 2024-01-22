@@ -16,6 +16,8 @@ let
 
     systemd = config.systemd.package;
 
+    bootspecTools = pkgs.bootspec;
+
     nix = config.nix.package.out;
 
     timeout = optionalString (config.boot.loader.timeout != null) config.boot.loader.timeout;
@@ -79,7 +81,11 @@ in {
 
       type = types.bool;
 
-      description = lib.mdDoc "Whether to enable the systemd-boot (formerly gummiboot) EFI boot manager";
+      description = lib.mdDoc ''
+        Whether to enable the systemd-boot (formerly gummiboot) EFI boot manager.
+        For more information about systemd-boot:
+        https://www.freedesktop.org/wiki/Software/systemd/systemd-boot/
+      '';
     };
 
     editor = mkOption {

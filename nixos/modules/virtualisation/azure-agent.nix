@@ -61,7 +61,7 @@ in
 
         # Which provisioning agent to use. Supported values are "auto" (default), "waagent",
         # "cloud-init", or "disabled".
-        Provisioning.Agent=disabled
+        Provisioning.Agent=auto
 
         # Password authentication for root account will be unavailable.
         Provisioning.DeleteRootPassword=n
@@ -202,6 +202,13 @@ in
 
     services.udev.packages = [ pkgs.waagent ];
 
+    # Provide waagent-shipped udev rules in initrd too.
+    boot.initrd.services.udev.packages = [ pkgs.waagent ];
+    # udev rules shell out to chmod, cut and readlink, which are all
+    # provided by pkgs.coreutils, which is in services.udev.path, but not
+    # boot.initrd.services.udev.binPackages.
+    boot.initrd.services.udev.binPackages = [ pkgs.coreutils ];
+
     networking.dhcpcd.persistent = true;
 
     services.logrotate = {
@@ -245,8 +252,29 @@ in
         pkgs.e2fsprogs
         pkgs.bash
 
+        pkgs.findutils
+        pkgs.gnugrep
+        pkgs.gnused
+        pkgs.iproute2
+        pkgs.iptables
+
+        # for hostname
+        pkgs.nettools
+
+        pkgs.openssh
+        pkgs.openssl
+        pkgs.parted
+
+        # for pidof
+        pkgs.procps
+
+        # for useradd, usermod
+        pkgs.shadow
+
+        pkgs.util-linux # for (u)mount, fdisk, sfdisk, mkswap
+
         # waagent's Microsoft.OSTCExtensions.VMAccessForLinux needs Python 3
-        pkgs.python3
+        pkgs.python39
 
         # waagent's Microsoft.CPlat.Core.RunCommandLinux needs lsof
         pkgs.lsof
@@ -258,6 +286,11 @@ in
         Type = "simple";
       };
     };
+
+    # waagent will generate files under /etc/sudoers.d during provisioning
+    security.sudo.extraConfig = ''
+      #includedir /etc/sudoers.d
+    '';
 
   };
 }

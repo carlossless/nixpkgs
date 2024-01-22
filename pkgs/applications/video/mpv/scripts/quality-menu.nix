@@ -1,6 +1,7 @@
 { lib
 , buildLua
 , fetchFromGitHub
+, gitUpdater
 , oscSupport ? false
 }:
 
@@ -14,9 +15,11 @@ buildLua rec {
     rev = "v${version}";
     hash = "sha256-yrcTxqpLnOI1Tq3khhflO3wzhyeTPuvKifyH5/P57Ns=";
   };
+  passthru.updateScript = gitUpdater {
+    rev-prefix = "v";
+  };
 
-  passthru.scriptName = "quality-menu.lua";
-  scriptPath = if oscSupport then "*.lua" else passthru.scriptName;
+  extraScripts = lib.optional oscSupport "quality-menu-osc.lua";
 
   meta = with lib; {
     description = "A userscript for MPV that allows you to change youtube video quality (ytdl-format) on the fly";

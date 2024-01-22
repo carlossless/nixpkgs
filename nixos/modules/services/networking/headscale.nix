@@ -17,14 +17,7 @@ in {
     services.headscale = {
       enable = mkEnableOption (lib.mdDoc "headscale, Open Source coordination server for Tailscale");
 
-      package = mkOption {
-        type = types.package;
-        default = pkgs.headscale;
-        defaultText = literalExpression "pkgs.headscale";
-        description = lib.mdDoc ''
-          Which headscale package to use for the running server.
-        '';
-      };
+      package = mkPackageOption pkgs "headscale" { };
 
       user = mkOption {
         default = "headscale";
@@ -467,6 +460,7 @@ in {
 
     systemd.services.headscale = {
       description = "headscale coordination server for Tailscale";
+      wants = [ "network-online.target" ];
       after = ["network-online.target"];
       wantedBy = ["multi-user.target"];
       restartTriggers = [configFile];

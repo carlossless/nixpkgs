@@ -37,7 +37,7 @@
   modDirVersion ? null
 
 , # An attribute set whose attributes express the availability of
-  # certain features in this kernel.  E.g. `{iwlwifi = true;}'
+  # certain features in this kernel.  E.g. `{ia32Emulation = true;}'
   # indicates a kernel that provides Intel wireless support.  Used in
   # NixOS to implement kernel-specific behaviour.
   features ? {}
@@ -89,9 +89,7 @@ let
 
   # Combine the `features' attribute sets of all the kernel patches.
   kernelFeatures = lib.foldr (x: y: (x.features or {}) // y) ({
-    iwlwifi = true;
     efiBootStub = true;
-    needsCifsUtils = true;
     netfilterRPFilter = true;
     ia32Emulation = true;
   } // features) kernelPatches;
@@ -135,8 +133,6 @@ let
     platformName = stdenv.hostPlatform.linux-kernel.name;
     # e.g. "defconfig"
     kernelBaseConfig = if defconfig != null then defconfig else stdenv.hostPlatform.linux-kernel.baseConfig;
-    # e.g. "bzImage"
-    kernelTarget = stdenv.hostPlatform.linux-kernel.target;
 
     makeFlags = lib.optionals (stdenv.hostPlatform.linux-kernel ? makeFlags) stdenv.hostPlatform.linux-kernel.makeFlags
       ++ extraMakeFlags;

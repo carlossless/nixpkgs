@@ -27,13 +27,13 @@ lib.checkListOfEnum "${pname}: grub screens" [ "1080p" "2k" "4k" ] grubScreens
 
 stdenvNoCC.mkDerivation rec {
   inherit pname;
-  version = "2023-05-17";
+  version = "2023-12-31";
 
   src = fetchFromGitHub {
     owner = "vinceliuice";
     repo = pname;
     rev = version;
-    sha256 = "hymOqtwMk6Yja5le6ADZl04yjbOJjhairiH7a4m7gMk=";
+    hash = "sha256-tAby1nLRBdkVQy448BXloBw8oeYqN2aFEs0jahNI3jg=";
   };
 
   nativeBuildInputs = [

@@ -43,15 +43,17 @@ crudeUnquoteJSON() {
     cut -d \" -f2
 }
 
-prefixExpression='let
-  lib = import <nixpkgs/lib>;
-  internal = import <nixpkgs/lib/fileset/internal.nix> {
-    inherit lib;
-  };
-in
-with lib;
-with internal;
-with lib.fileset;'
+prefixExpression='
+  let
+    lib = import <nixpkgs/lib>;
+    internal = import <nixpkgs/lib/fileset/internal.nix> {
+      inherit lib;
+    };
+  in
+  with lib;
+  with internal;
+  with lib.fileset;
+'
 
 # Check that two nix expression successfully evaluate to the same value.
 # The expressions have `lib.fileset` in scope.
@@ -95,8 +97,9 @@ expectEqual() {
 # Usage: expectStorePath NIX
 expectStorePath() {
     local expr=$1
-    if ! result=$(nix-instantiate --eval --strict --json --read-write-mode --show-trace \
+    if ! result=$(nix-instantiate --eval --strict --json --read-write-mode --show-trace 2>"$tmp"/stderr \
         --expr "$prefixExpression ($expr)"); then
+        cat "$tmp/stderr" >&2
         die "$expr failed to evaluate, but it was expected to succeed"
     fi
     # This is safe because we assume to get back a store path in a string
@@ -392,7 +395,8 @@ expectFailure 'toSource { root = ./.; fileset = cleanSourceWith { src = ./.; }; 
 \s*Note that this only works for sources created from paths.'
 
 # Path coercion errors for non-existent paths
-expectFailure 'toSource { root = ./.; fileset = ./a; }' 'lib.fileset.toSource: `fileset` \('"$work"'/a\) is a path that does not exist.'
+expectFailure 'toSource { root = ./.; fileset = ./a; }' 'lib.fileset.toSource: `fileset` \('"$work"'/a\) is a path that does not exist.
+\s*To create a file set from a path that may not exist, use `lib.fileset.maybeMissing`.'
 
 # File sets cannot be evaluated directly
 expectFailure 'union ./. ./.' 'lib.fileset: Directly evaluating a file set is not supported.
@@ -810,14 +814,22 @@ checkFileset 'difference ./. ./b'
 
 ## File filter
 
+# The first argument needs to be a function
+expectFailure 'fileFilter null (abort "this is not needed")' 'lib.fileset.fileFilter: First argument is of type null, but it should be a function instead.'
+
+# The second argument needs to be an existing path
+expectFailure 'fileFilter (file: abort "this is not needed") _emptyWithoutBase' 'lib.fileset.fileFilter: Second argument is a file set, but it should be a path instead.
+\s*If you need to filter files in a file set, use `intersection fileset \(fileFilter pred \./\.\)` instead.'
+expectFailure 'fileFilter (file: abort "this is not needed") null' 'lib.fileset.fileFilter: Second argument is of type null, but it should be a path instead.'
+expectFailure 'fileFilter (file: abort "this is not needed") ./a' 'lib.fileset.fileFilter: Second argument \('"$work"'/a\) is a path that does not exist.'
+
 # The predicate is not called when there's no files
 tree=()
 checkFileset 'fileFilter (file: abort "this is not needed") ./.'
-checkFileset 'fileFilter (file: abort "this is not needed") _emptyWithoutBase'
 
 # The predicate must be able to handle extra attributes
 touch a
-expectFailure 'toSource { root = ./.; fileset = fileFilter ({ name, type }: true) ./.; }' 'called with unexpected argument '\''"lib.fileset.fileFilter: The predicate function passed as the first argument must be able to handle extra attributes for future compatibility. If you'\''re using `\{ name, file \}:`, use `\{ name, file, ... \}:` instead."'\'
+expectFailure 'toSource { root = ./.; fileset = fileFilter ({ name, type, hasExt }: true) ./.; }' 'called with unexpected argument '\''"lib.fileset.fileFilter: The predicate function passed as the first argument must be able to handle extra attributes for future compatibility. If you'\''re using `\{ name, file, hasExt \}:`, use `\{ name, file, hasExt, ... \}:` instead."'\'
 rm -rf -- *
 
 # .name is the name, and it works correctly, even recursively
@@ -865,6 +877,39 @@ expectEqual \
     'toSource { root = ./.; fileset = union ./d/a ./d/b; }'
 rm -rf -- *
 
+# Check that .hasExt checks for the file extension
+# The empty extension is the same as a file ending with a .
+tree=(
+    [a]=0
+    [a.]=1
+    [a.b]=0
+    [a.b.]=1
+    [a.b.c]=0
+)
+checkFileset 'fileFilter (file: file.hasExt "") ./.'
+
+# It can check for the last extension
+tree=(
+    [a]=0
+    [.a]=1
+    [.a.]=0
+    [.b.a]=1
+    [.b.a.]=0
+)
+checkFileset 'fileFilter (file: file.hasExt "a") ./.'
+
+# It can check for any extension
+tree=(
+    [a.b.c.d]=1
+)
+checkFileset 'fileFilter (file:
+  all file.hasExt [
+    "b.c.d"
+    "c.d"
+    "d"
+  ]
+) ./.'
+
 # It's lazy
 tree=(
     [b]=1
@@ -874,6 +919,18 @@ tree=(
 checkFileset 'union ./c/a (fileFilter (file: assert file.name != "a"; true) ./.)'
 # but here we need to use ./c
 checkFileset 'union (fileFilter (file: assert file.name != "a"; true) ./.) ./c'
+
+# Make sure single files are filtered correctly
+tree=(
+    [a]=1
+    [b]=0
+)
+checkFileset 'fileFilter (file: assert file.name == "a"; true) ./a'
+tree=(
+    [a]=0
+    [b]=0
+)
+checkFileset 'fileFilter (file: assert file.name == "a"; false) ./a'
 
 ## Tracing
 
@@ -1023,12 +1080,17 @@ rm -rf -- *
 ## lib.fileset.fromSource
 
 # Check error messages
-expectFailure 'fromSource null' 'lib.fileset.fromSource: The source origin of the argument is of type null, but it should be a path instead.'
 
+# String-like values are not supported
 expectFailure 'fromSource (lib.cleanSource "")' 'lib.fileset.fromSource: The source origin of the argument is a string-like value \(""\), but it should be a path instead.
 \s*Sources created from paths in strings cannot be turned into file sets, use `lib.sources` or derivations instead.'
 
+# Wrong type
+expectFailure 'fromSource null' 'lib.fileset.fromSource: The source origin of the argument is of type null, but it should be a path instead.'
 expectFailure 'fromSource (lib.cleanSource null)' 'lib.fileset.fromSource: The source origin of the argument is of type null, but it should be a path instead.'
+
+# fromSource on non-existent paths gives an error
+expectFailure 'fromSource ./a' 'lib.fileset.fromSource: The source origin \('"$work"'/a\) of the argument is a path that does not exist.'
 
 # fromSource on a path works and is the same as coercing that path
 mkdir a
@@ -1230,6 +1292,269 @@ expectEqual 'trace (intersection ./a (fromSource (lib.cleanSourceWith {
       abort "filter should not be called on ${pathString}";
 }))) null' 'trace ./a/b null'
 rm -rf -- *
+
+## lib.fileset.gitTracked/gitTrackedWith
+
+# The first/second argument has to be a path
+expectFailure 'gitTracked null' 'lib.fileset.gitTracked: Expected the argument to be a path, but it'\''s a null instead.'
+expectFailure 'gitTrackedWith {} null' 'lib.fileset.gitTrackedWith: Expected the second argument to be a path, but it'\''s a null instead.'
+
+# The path must be a directory
+touch a
+expectFailure 'gitTracked ./a' 'lib.fileset.gitTracked: Expected the argument \('"$work"'/a\) to be a directory, but it'\''s a file instead'
+expectFailure 'gitTrackedWith {} ./a' 'lib.fileset.gitTrackedWith: Expected the second argument \('"$work"'/a\) to be a directory, but it'\''s a file instead'
+rm -rf -- *
+
+# The path has to contain a .git directory
+expectFailure 'gitTracked ./.' 'lib.fileset.gitTracked: Expected the argument \('"$work"'\) to point to a local working tree of a Git repository, but it'\''s not.'
+expectFailure 'gitTrackedWith {} ./.' 'lib.fileset.gitTrackedWith: Expected the second argument \('"$work"'\) to point to a local working tree of a Git repository, but it'\''s not.'
+
+# recurseSubmodules has to be a boolean
+expectFailure 'gitTrackedWith { recurseSubmodules = null; } ./.' 'lib.fileset.gitTrackedWith: Expected the attribute `recurseSubmodules` of the first argument to be a boolean, but it'\''s a null instead.'
+
+# recurseSubmodules = true is not supported on all Nix versions
+if [[ "$(nix-instantiate --eval --expr "$prefixExpression (versionAtLeast builtins.nixVersion _fetchGitSubmodulesMinver)")" == true ]]; then
+    fetchGitSupportsSubmodules=1
+else
+    fetchGitSupportsSubmodules=
+    expectFailure 'gitTrackedWith { recurseSubmodules = true; } ./.' 'lib.fileset.gitTrackedWith: Setting the attribute `recurseSubmodules` to `true` is only supported for Nix version 2.4 and after, but Nix version [0-9.]+ is used.'
+fi
+
+# Checks that `gitTrackedWith` contains the same files as `git ls-files`
+# for the current working directory.
+# If --recurse-submodules is passed, the flag is passed through to `git ls-files`
+# and as `recurseSubmodules` to `gitTrackedWith`
+checkGitTrackedWith() {
+    if [[ "${1:-}" == "--recurse-submodules" ]]; then
+        gitLsFlags="--recurse-submodules"
+        gitTrackedArg="{ recurseSubmodules = true; }"
+    else
+        gitLsFlags=""
+        gitTrackedArg="{ }"
+    fi
+
+    # All files listed by `git ls-files`
+    expectedFiles=()
+    while IFS= read -r -d $'\0' file; do
+        # If there are submodules but --recurse-submodules isn't passed,
+        # `git ls-files` lists them as empty directories,
+        # we need to filter that out since we only want to check/count files
+        if [[ -f "$file" ]]; then
+            expectedFiles+=("$file")
+        fi
+    done < <(git ls-files -z $gitLsFlags)
+
+    storePath=$(expectStorePath 'toSource { root = ./.; fileset = gitTrackedWith '"$gitTrackedArg"' ./.; }')
+
+    # Check that each expected file is also in the store path with the same content
+    for expectedFile in "${expectedFiles[@]}"; do
+        if [[ ! -e "$storePath"/"$expectedFile" ]]; then
+            die "Expected file $expectedFile to exist in $storePath, but it doesn't.\nGit status:\n$(git status)\nStore path contents:\n$(find "$storePath")"
+        fi
+        if ! diff "$expectedFile" "$storePath"/"$expectedFile"; then
+            die "Expected file $expectedFile to have the same contents as in $storePath, but it doesn't.\nGit status:\n$(git status)\nStore path contents:\n$(find "$storePath")"
+        fi
+    done
+
+    # This is a cheap way to verify the inverse: That all files in the store path are also expected
+    # We just count the number of files in both and verify they're the same
+    actualFileCount=$(find "$storePath" -type f -printf . | wc -c)
+    if [[ "${#expectedFiles[@]}" != "$actualFileCount" ]]; then
+        die "Expected ${#expectedFiles[@]} files in $storePath, but got $actualFileCount.\nGit status:\n$(git status)\nStore path contents:\n$(find "$storePath")"
+    fi
+}
+
+
+# Runs checkGitTrackedWith with and without --recurse-submodules
+# Allows testing both variants together
+checkGitTracked() {
+    checkGitTrackedWith
+    if [[ -n "$fetchGitSupportsSubmodules" ]]; then
+        checkGitTrackedWith --recurse-submodules
+    fi
+}
+
+createGitRepo() {
+    git init -q "$1"
+    # Only repo-local config
+    git -C "$1" config user.name "Nixpkgs"
+    git -C "$1" config user.email "nixpkgs@nixos.org"
+    # Get at least a HEAD commit, needed for older Nix versions
+    git -C "$1" commit -q --allow-empty -m "Empty commit"
+}
+
+# Check that gitTracked[With] works as expected when evaluated out-of-tree
+
+## First we create a git repositories (and a subrepository) with `default.nix` files referring to their local paths
+## Simulating how it would be used in the wild
+createGitRepo .
+echo '{ fs }: fs.toSource { root = ./.; fileset = fs.gitTracked ./.; }' > default.nix
+git add .
+
+## We can evaluate it locally just fine, `fetchGit` is used underneath to filter git-tracked files
+expectEqual '(import ./. { fs = lib.fileset; }).outPath' '(builtins.fetchGit ./.).outPath'
+
+## We can also evaluate when importing from fetched store paths
+storePath=$(expectStorePath 'builtins.fetchGit ./.')
+expectEqual '(import '"$storePath"' { fs = lib.fileset; }).outPath' \""$storePath"\"
+
+## But it fails if the path is imported with a fetcher that doesn't remove .git (like just using "${./.}")
+expectFailure 'import "${./.}" { fs = lib.fileset; }' 'lib.fileset.gitTracked: The argument \(.*\) is a store path within a working tree of a Git repository.
+\s*This indicates that a source directory was imported into the store using a method such as `import "\$\{./.\}"` or `path:.`.
+\s*This function currently does not support such a use case, since it currently relies on `builtins.fetchGit`.
+\s*You could make this work by using a fetcher such as `fetchGit` instead of copying the whole repository.
+\s*If you can'\''t avoid copying the repo to the store, see https://github.com/NixOS/nix/issues/9292.'
+
+## Even with submodules
+if [[ -n "$fetchGitSupportsSubmodules" ]]; then
+    ## Both the main repo with the submodule
+    echo '{ fs }: fs.toSource { root = ./.; fileset = fs.gitTrackedWith { recurseSubmodules = true; } ./.; }' > default.nix
+    createGitRepo sub
+    git submodule add ./sub sub >/dev/null
+    ## But also the submodule itself
+    echo '{ fs }: fs.toSource { root = ./.; fileset = fs.gitTracked ./.; }' > sub/default.nix
+    git -C sub add .
+
+    ## We can evaluate it locally just fine, `fetchGit` is used underneath to filter git-tracked files
+    expectEqual '(import ./. { fs = lib.fileset; }).outPath' '(builtins.fetchGit { url = ./.; submodules = true; }).outPath'
+    expectEqual '(import ./sub { fs = lib.fileset; }).outPath' '(builtins.fetchGit ./sub).outPath'
+
+    ## We can also evaluate when importing from fetched store paths
+    storePathWithSub=$(expectStorePath 'builtins.fetchGit { url = ./.; submodules = true; }')
+    expectEqual '(import '"$storePathWithSub"' { fs = lib.fileset; }).outPath' \""$storePathWithSub"\"
+    storePathSub=$(expectStorePath 'builtins.fetchGit ./sub')
+    expectEqual '(import '"$storePathSub"' { fs = lib.fileset; }).outPath' \""$storePathSub"\"
+
+    ## But it fails if the path is imported with a fetcher that doesn't remove .git (like just using "${./.}")
+    expectFailure 'import "${./.}" { fs = lib.fileset; }' 'lib.fileset.gitTrackedWith: The second argument \(.*\) is a store path within a working tree of a Git repository.
+    \s*This indicates that a source directory was imported into the store using a method such as `import "\$\{./.\}"` or `path:.`.
+    \s*This function currently does not support such a use case, since it currently relies on `builtins.fetchGit`.
+    \s*You could make this work by using a fetcher such as `fetchGit` instead of copying the whole repository.
+    \s*If you can'\''t avoid copying the repo to the store, see https://github.com/NixOS/nix/issues/9292.'
+    expectFailure 'import "${./.}/sub" { fs = lib.fileset; }' 'lib.fileset.gitTracked: The argument \(.*/sub\) is a store path within a working tree of a Git repository.
+    \s*This indicates that a source directory was imported into the store using a method such as `import "\$\{./.\}"` or `path:.`.
+    \s*This function currently does not support such a use case, since it currently relies on `builtins.fetchGit`.
+    \s*You could make this work by using a fetcher such as `fetchGit` instead of copying the whole repository.
+    \s*If you can'\''t avoid copying the repo to the store, see https://github.com/NixOS/nix/issues/9292.'
+fi
+rm -rf -- *
+
+# Go through all stages of Git files
+# See https://www.git-scm.com/book/en/v2/Git-Basics-Recording-Changes-to-the-Repository
+
+# Empty repository
+createGitRepo .
+checkGitTracked
+
+# Untracked file
+echo a > a
+checkGitTracked
+
+# Staged file
+git add a
+checkGitTracked
+
+# Committed file
+git commit -q -m "Added a"
+checkGitTracked
+
+# Edited file
+echo b > a
+checkGitTracked
+
+# Removed file
+git rm -f -q a
+checkGitTracked
+
+rm -rf -- *
+
+# gitignored file
+createGitRepo .
+echo a > .gitignore
+touch a
+git add -A
+checkGitTracked
+
+# Add it regardless (needs -f)
+git add -f a
+checkGitTracked
+rm -rf -- *
+
+# Directory
+createGitRepo .
+mkdir -p d1/d2/d3
+touch d1/d2/d3/a
+git add d1
+checkGitTracked
+rm -rf -- *
+
+# Submodules
+createGitRepo .
+createGitRepo sub
+
+# Untracked submodule
+git -C sub commit -q --allow-empty -m "Empty commit"
+checkGitTracked
+
+# Tracked submodule
+git submodule add ./sub sub >/dev/null
+checkGitTracked
+
+# Untracked file
+echo a > sub/a
+checkGitTracked
+
+# Staged file
+git -C sub add a
+checkGitTracked
+
+# Committed file
+git -C sub commit -q -m "Add a"
+checkGitTracked
+
+# Changed file
+echo b > sub/b
+checkGitTracked
+
+# Removed file
+git -C sub rm -f -q a
+checkGitTracked
+
+rm -rf -- *
+
+## lib.fileset.maybeMissing
+
+# Argument must be a path
+expectFailure 'maybeMissing "someString"' 'lib.fileset.maybeMissing: Argument \("someString"\) is a string-like value, but it should be a path instead.'
+expectFailure 'maybeMissing null' 'lib.fileset.maybeMissing: Argument is of type null, but it should be a path instead.'
+
+tree=(
+)
+checkFileset 'maybeMissing ./a'
+checkFileset 'maybeMissing ./b'
+checkFileset 'maybeMissing ./b/c'
+
+# Works on single files
+tree=(
+    [a]=1
+    [b/c]=0
+    [b/d]=0
+)
+checkFileset 'maybeMissing ./a'
+tree=(
+    [a]=0
+    [b/c]=1
+    [b/d]=0
+)
+checkFileset 'maybeMissing ./b/c'
+
+# Works on directories
+tree=(
+    [a]=0
+    [b/c]=1
+    [b/d]=1
+)
+checkFileset 'maybeMissing ./b'
 
 # TODO: Once we have combinators and a property testing library, derive property tests from https://en.wikipedia.org/wiki/Algebra_of_sets
 

@@ -1,4 +1,6 @@
-{ python3
+{ lib
+, stdenv
+, python3
 , callPackage
 , recurseIntoAttrs
 , nixosTests
@@ -27,16 +29,7 @@ let
       scmsrht = self.callPackage ./scm.nix { };
 
       # sourcehut is not (yet) compatible with SQLAlchemy 2.x
-      sqlalchemy = super.sqlalchemy.overridePythonAttrs (oldAttrs: rec {
-        version = "1.4.46";
-        src = fetchPypi {
-          pname = "SQLAlchemy";
-          inherit version;
-          hash = "sha256-aRO4JH2KKS74MVFipRkx4rQM6RaB8bbxj2lwRSAMSjA=";
-        };
-        nativeCheckInputs = with super; [ pytestCheckHook mock ];
-        disabledTestPaths = [];
-      });
+      sqlalchemy = super.sqlalchemy_1_4;
 
       flask-sqlalchemy = super.flask-sqlalchemy.overridePythonAttrs (oldAttrs: rec {
         version = "2.5.1";

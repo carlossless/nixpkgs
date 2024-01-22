@@ -1,4 +1,4 @@
-{ lib, buildLua, fetchFromGitHub, python3 }:
+{ lib, buildLua, fetchFromGitHub, gitUpdater, python3 }:
 
 buildLua rec {
   pname = "mpv-thumbnail-script";
@@ -10,12 +10,15 @@ buildLua rec {
     rev = version;
     sha256 = "sha256-J24Rou7BTE7zoiPlBkWuO9dtYJiuzkuwB4FROuzXzag=";
   };
+  passthru.updateScript = gitUpdater {};
 
   nativeBuildInputs = [ python3 ];
   postPatch = "patchShebangs concat_files.py";
   dontBuild = false;
 
-  scriptPath = "mpv_thumbnail_script_{client_osc,server}.lua";
+  scriptPath = "mpv_thumbnail_script_client_osc.lua";
+  extraScripts = [ "mpv_thumbnail_script_server.lua" ];
+  passthru.scriptName = "mpv_thumbnail_script_{client_osc,server}.lua";
 
   meta = with lib; {
     description = "A lua script to show preview thumbnails in mpv's OSC seekbar";

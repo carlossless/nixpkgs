@@ -1,24 +1,24 @@
 { lib
 , buildPythonPackage
 , fetchPypi
-, flit-core
+, setuptools
 , pythonOlder
 }:
 
 buildPythonPackage rec {
   pname = "pex";
-  version = "2.1.151";
+  version = "2.1.159";
   pyproject = true;
 
   disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    hash = "sha256-op7V7Xn0qzcCTyISyi/Z4bhdk/W7Ol5YbmvD2Sl5zkM=";
+    hash = "sha256-hBlwfyQ1PbD6AyCsra2yZwt0x8+iGtDisU9coTSJRZI=";
   };
 
   nativeBuildInputs = [
-    flit-core
+    setuptools
   ];
 
   # A few more dependencies I don't want to handle right now...
