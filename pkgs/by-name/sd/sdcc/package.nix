@@ -18,7 +18,7 @@ assert lib.subtractLists [
 ] excludePorts == [];
 stdenv.mkDerivation (finalAttrs: {
   pname = "sdcc";
-  version = "4.3.0";
+  version = "4.4.0-rc3";
 
   src = fetchurl {
     url = "mirror://sourceforge/sdcc/sdcc-src-${finalAttrs.version}.tar.bz2";
