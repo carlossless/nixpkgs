@@ -22,7 +22,7 @@ stdenv.mkDerivation (finalAttrs: {
 
   src = fetchurl {
     url = "mirror://sourceforge/sdcc/sdcc-src-${finalAttrs.version}.tar.bz2";
-    hash = "sha256-Km/A8CEIAQPa85OsDv6ozg9en+IUDc4wuZkoLIHIk80=";
+    hash = "sha256-pzNQuv39iNdFjFuGzsxrjtsL8a4bC3k+nIKuz4gmlm0=";
   };
 
   patches = [
