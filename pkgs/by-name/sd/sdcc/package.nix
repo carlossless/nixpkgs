@@ -31,7 +31,7 @@ stdenv.mkDerivation (finalAttrs: {
     #   filterdiff -p0 -i 'support/cpp/*' --addprefix src/ r14312.diff > r14312-cpp-fixes.diff
     # followed by manual cleanup to ignore everything not strictly necessary.
     # TODO: Remove when updating.
-    ./r14312-cpp-fixes-minimal.diff
+    # ./r14312-cpp-fixes-minimal.diff
   ];
 
   outputs = [ "out" "doc" "man" ];
