@@ -4,11 +4,15 @@ self: super: {
 
     apache_datasketches = super.callPackage ./ext/apache_datasketches.nix { };
 
+    citus = super.callPackage ./ext/citus.nix { };
+
     h3-pg = super.callPackage ./ext/h3-pg.nix { };
 
     hypopg = super.callPackage ./ext/hypopg.nix { };
 
     jsonb_deep_sum = super.callPackage ./ext/jsonb_deep_sum.nix { };
+
+    lantern = super.callPackage ./ext/lantern.nix { };
 
     periods = super.callPackage ./ext/periods.nix { };
 
@@ -35,6 +39,8 @@ self: super: {
     pgaudit = super.callPackage ./ext/pgaudit.nix { };
 
     pgroonga = super.callPackage ./ext/pgroonga.nix { };
+
+    pgsodium = super.callPackage ./ext/pgsodium.nix { };
 
     pgsql-http = super.callPackage ./ext/pgsql-http.nix { };
 

@@ -46,6 +46,24 @@ let
         ];
       });
 
+      aiohttp = super.aiohttp.overridePythonAttrs (old: rec {
+        version = "3.9.3";
+        src = fetchFromGitHub {
+          owner = "aio-libs";
+          repo = "aiohttp";
+          rev = "refs/tags/v${version}";
+          hash = "sha256-dEeMHruFJ1o0J6VUJcpUk7LhEC8sV8hUKXoKcd618lE=";
+        };
+        nativeCheckInputs = with self; [
+          freezegun
+          gunicorn
+          pytest-mock
+          pytestCheckHook
+          python-on-whales
+          re-assert
+        ];
+      });
+
       aionotion = super.aionotion.overridePythonAttrs (oldAttrs: rec {
         version = "2023.05.5";
         src = fetchFromGitHub {
@@ -322,6 +340,16 @@ let
         };
       });
 
+      python-kasa = super.python-kasa.overridePythonAttrs (oldAttrs: rec {
+        version = "0.5.4";
+        src = fetchFromGitHub {
+          owner = "python-kasa";
+          repo = "python-kasa";
+          rev = "refs/tags/${version}";
+          hash = "sha256-wGPMrYaTtKkkNW88eyiiciFcBSTRqqChYi6e15WUCHo=";
+        };
+      });
+
       python-roborock = super.python-roborock.overridePythonAttrs (oldAttrs: rec {
         version = "0.38.0";
         src = fetchFromGitHub {
@@ -438,7 +466,7 @@ let
   extraBuildInputs = extraPackages python.pkgs;
 
   # Don't forget to run parse-requirements.py after updating
-  hassVersion = "2024.1.3";
+  hassVersion = "2024.1.6";
 
 in python.pkgs.buildPythonApplication rec {
   pname = "homeassistant";
@@ -456,13 +484,13 @@ in python.pkgs.buildPythonApplication rec {
     owner = "home-assistant";
     repo = "core";
     rev = "refs/tags/${version}";
-    hash = "sha256-Yrv7THolGNylSK1BKUvEzxL8uAQWkOBOWAX00fJBAuQ=";
+    hash = "sha256-zCpdOl16ZkO9mr0nYZg1mlnGNaPaX0RALFEDRHGfKvM=";
   };
 
   # Secondary source is pypi sdist for translations
   sdist = fetchPypi {
     inherit pname version;
-    hash = "sha256-Mj00aTkummsPpUtQ5iUG9xOJ4ra6Sfu8uklwroMXoy0=";
+    hash = "sha256-ipAw+vqePa5KA/Gqhl3WsQbzmzMXjmVx0NvbrM84SKg=";
   };
 
   nativeBuildInputs = with python.pkgs; [
@@ -476,6 +504,7 @@ in python.pkgs.buildPythonApplication rec {
     "cryptography"
     "home-assistant-bluetooth"
     "httpx"
+    "jinja2"
     "lru-dict"
     "orjson"
     "pyopenssl"
