@@ -1,40 +1,47 @@
-{
-  lib,
-  fetchFromGitHub,
-  rustPlatform,
-  pkg-config,
-  libusb1,
-  glib,
-  gdk-pixbuf,
-  cairo,
-  pango,
-  gtk4,
-  graphene,
+{ cairo
+, darwin
+, fetchFromGitHub
+, gdk-pixbuf
+, glib
+, graphene
+, gtk4
+, lib
+, libusb1
+, pango
+, pkg-config
+, rustPlatform
+, stdenv
+, wrapGAppsHook4
 }:
 
 rustPlatform.buildRustPackage rec {
   pname = "packetry";
-  version = "0.1.0";
+  version = "0.2.2";
 
   src = fetchFromGitHub {
     owner = "greatscottgadgets";
     repo = "packetry";
     rev = "v${version}";
-    hash = "sha256-GmEv7wkYpSM3ds5AHGa+1IiuAdI2O793d+VtSU9vqag=";
+    hash = "sha256-FlimHJS3hwB2Tkulb8uToKFe165uv/gFxJ4uezVNka4=";
   };
 
-  cargoHash = "sha256-SxJIpK6Vzgl7QEGnnUOn4ejroPHWKieLRLMpLscEhs4=";
+  cargoHash = "sha256-n1hPoSUEFUGpEUOiuirSbeAnU+qiENDg4XyN5Jkjo/Y=";
 
-  nativeBuildInputs = [ pkg-config ];
+  nativeBuildInputs = [
+    pkg-config
+    wrapGAppsHook4
+  ];
 
   buildInputs = [
-    libusb1
-    glib
-    gdk-pixbuf
     cairo
-    pango
-    gtk4
+    gdk-pixbuf
+    glib
     graphene
+    gtk4
+    libusb1
+    pango
+  ] ++ lib.optionals stdenv.isDarwin [
+    darwin.apple_sdk.frameworks.AppKit
   ];
 
   doCheck = false;
