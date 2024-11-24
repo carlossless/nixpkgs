@@ -4,10 +4,6 @@ set -euo pipefail
 
 attr="q2pro"
 
-pkgDir=$(dirname "${BASH_SOURCE[@]}")
-nixFile="$pkgDir/package.nix"
-nixpkgsRoot=$(cd "$pkgDir" && git rev-parse --show-toplevel)
-
 tmpdir=$(mktemp -d "/tmp/$attr.XXX")
 repo="$tmpdir/repo"
 trap 'rm -rf $tmpdir' EXIT
@@ -19,13 +15,6 @@ revCount="$(git -C "$repo" rev-list --count HEAD)"
 sourceDate="$(git -C "$repo" show -s --format=%ct HEAD)"
 version="$revCount"
 
-echo "Updating q2pro to version $version (rev: $rev, date: $sourceDate)"
+echo "Updating $attr to version $version (rev: $rev, date: $sourceDate)"
 
-update-source-version "$attr" "$version" --rev="${rev}" --file="${nixFile}"
-
-oldSourceDate=$(nix eval -f "$nixpkgsRoot/default.nix" "$attr.SOURCE_DATE_EPOCH")
-if [ "$oldSourceDate" != "$sourceDate" ]; then
-    sed -i -re "/\bSOURCE_DATE_EPOCH\b\s*=/ s|$oldSourceDate|$sourceDate|" "$nixFile"
-else
-    echo "SOURCE_DATE_EPOCH is already up to date"
-fi
+update-source-version "$attr" "$version" --rev="$rev" --source-date-epoch="$sourceDate"
