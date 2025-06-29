@@ -3,6 +3,7 @@
   fetchFromGitHub,
   buildPythonPackage,
   python,
+  callPackage,
 
   # gateware
   makeSetupHook,
@@ -90,7 +91,9 @@ buildPythonPackage rec {
 
   nativeBuildInputs = [
     build-gateware-hook
+    (callPackage ./moondancer.nix { inherit src; })
   ];
+
   nativeCheckInputs = [
     pytestCheckHook
   ];
