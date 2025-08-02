@@ -50,14 +50,14 @@ let
 in
 buildPythonPackage rec {
   pname = "cynthion";
-  version = "0.2.0";
+  version = "0.2.3";
   pyproject = true;
 
   src = fetchFromGitHub {
     owner = "greatscottgadgets";
     repo = "cynthion";
     tag = version;
-    hash = "sha256-rbvw2eieZwTxStwCRuvIx/f4vdPsOFnV/U80Ga+fNPA=";
+    hash = "sha256-NAsELeOnWgMa6iWCJ0+hpbHIO3BsZBv0N/nK1XP+IpU=";
   };
 
   sourceRoot = "${src.name}/cynthion/python";
@@ -91,7 +91,7 @@ buildPythonPackage rec {
 
   nativeBuildInputs = [
     build-gateware-hook
-    (callPackage ./moondancer.nix { inherit src; })
+    # (callPackage ./moondancer.nix { inherit src; })
   ];
 
   nativeCheckInputs = [
