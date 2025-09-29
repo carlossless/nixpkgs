@@ -13,7 +13,9 @@
   libsigcxx,
   glew,
   zstd,
-  wrapGAppsHook4,
+  wrapGAppsHook3,
+  makeBinaryWrapper,
+  writeDarwinBundle,
   shaderc,
   vulkan-headers,
   vulkan-loader,
@@ -51,7 +53,11 @@ stdenv.mkDerivation {
     spirv-tools
   ]
   ++ lib.optionals stdenv.hostPlatform.isLinux [
-    wrapGAppsHook4
+    wrapGAppsHook3
+  ]
+  ++ lib.optionals stdenv.hostPlatform.isDarwin [
+    makeBinaryWrapper
+    writeDarwinBundle
   ];
 
   buildInputs = [
@@ -78,9 +84,30 @@ stdenv.mkDerivation {
     moltenvk
   ];
 
-  cmakeFlags = lib.optionals stdenv.hostPlatform.isDarwin [
-    "-DCMAKE_INSTALL_RPATH=${lib.strings.makeLibraryPath [ vulkan-loader ]}"
+  cmakeFlags = [
+    "-DNGSCOPECLIENT_VERSION=${version}"
   ];
+
+  patches = [
+    ./remove-git-derived-version.patch
+  ]
+  ++ lib.optionals stdenv.hostPlatform.isDarwin [
+    ./remove-brew-molten-vk-lookup.patch
+  ];
+
+  postFixup = lib.optionalString stdenv.hostPlatform.isDarwin ''
+    mv -v $out/bin/ngscopeclient $out/bin/.ngscopeclient-unwrapped
+    makeWrapper $out/bin/.ngscopeclient-unwrapped $out/bin/ngscopeclient \
+      --prefix DYLD_LIBRARY_PATH : "${lib.makeLibraryPath ([ vulkan-loader ])}"
+  '';
+
+  postInstall = lib.optionalString stdenv.hostPlatform.isDarwin ''
+    mkdir -p $out/Applications/ngscopeclient.app/Contents/{MacOS,Resources}
+
+    install -m644 {../src/ngscopeclient/icons/macos,$out/Applications/ngscopeclient.app/Contents/Resources}/ngscopeclient.icns
+
+    write-darwin-bundle $out ngscopeclient ngscopeclient ngscopeclient
+  '';
 
   meta = {
     description = "Advanced test & measurement remote control and analysis suite";
