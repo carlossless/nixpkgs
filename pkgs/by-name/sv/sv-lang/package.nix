@@ -28,6 +28,10 @@ stdenv.mkDerivation (finalAttrs: {
     "-DCMAKE_INSTALL_LIBDIR=lib"
 
     "-DSLANG_INCLUDE_TESTS=${if finalAttrs.finalPackage.doCheck then "ON" else "OFF"}"
+  ]
+  ++ lib.optionals stdenv.hostPlatform.isDarwin [
+    # slang has no C++20 modules; darwin clang-scan-deps can't find libc++ headers, so skip scanning
+    "-DCMAKE_CXX_SCAN_FOR_MODULES=OFF"
   ];
 
   __structuredAttrs = true;
@@ -48,17 +52,17 @@ stdenv.mkDerivation (finalAttrs: {
     catch2_3
   ];
 
-  # TODO: a mysterious linker error occurs when building the unittests on darwin.
-  # The error occurs when using catch2_3 in nixpkgs, not when fetching catch2_3 using CMake
-  doCheck = !stdenv.hostPlatform.isDarwin;
+  doCheck = true;
 
   meta = {
     description = "SystemVerilog compiler and language services";
     homepage = "https://github.com/MikePopoloski/slang";
     license = lib.licenses.mit;
-    maintainers = with lib.maintainers; [ sharzy ];
+    maintainers = with lib.maintainers; [
+      sharzy
+      carlossless
+    ];
     mainProgram = "slang";
     platforms = lib.platforms.all;
-    broken = stdenv.hostPlatform.isDarwin;
   };
 })

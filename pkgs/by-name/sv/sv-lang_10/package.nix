@@ -44,6 +44,10 @@ stdenv.mkDerivation (finalAttrs: {
     # https://github.com/llvm/circt/blob/firtool-1.147.0/CMakeLists.txt#L579
     # This may be parameterized if other packages depend on this package.
     "-DSLANG_USE_THREADS=OFF"
+  ]
+  ++ lib.optionals stdenv.hostPlatform.isDarwin [
+    # slang has no C++20 modules; darwin clang-scan-deps can't find libc++ headers, so skip scanning
+    "-DCMAKE_CXX_SCAN_FOR_MODULES=OFF"
   ];
 
   __structuredAttrs = true;
@@ -63,15 +67,17 @@ stdenv.mkDerivation (finalAttrs: {
     catch2_3
   ];
 
-  doCheck = !stdenv.hostPlatform.isDarwin;
+  doCheck = true;
 
   meta = {
     description = "SystemVerilog compiler and language services";
     homepage = "https://github.com/MikePopoloski/slang";
     license = lib.licenses.mit;
-    maintainers = with lib.maintainers; [ sharzy ];
+    maintainers = with lib.maintainers; [
+      sharzy
+      carlossless
+    ];
     mainProgram = "slang";
     platforms = lib.platforms.all;
-    broken = stdenv.hostPlatform.isDarwin;
   };
 })
