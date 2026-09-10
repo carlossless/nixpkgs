@@ -122,7 +122,7 @@ stdenv.mkDerivation (finalAttrs: {
     zlib
   ]
   ++ lib.optionals enablePython [
-    python3
+    pythonEnv
   ];
 
   cmakeFlags = [
