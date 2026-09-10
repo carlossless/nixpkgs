@@ -13,7 +13,9 @@
 }:
 
 let
-  pythonEnv = python3.withPackages (ps: with ps; [ click ]);
+  pythonDeps = ps: with ps; [ click ];
+  pythonEnv = python3.withPackages pythonDeps;
+  checkPythonEnv = python3.withPackages (ps: pythonDeps ps ++ [ ps.xmlschema ]);
 in
 
 stdenv.mkDerivation (finalAttrs: {
@@ -68,8 +70,7 @@ stdenv.mkDerivation (finalAttrs: {
   '';
 
   nativeCheckInputs = [
-    python3
-    python3.pkgs.xmlschema
+    checkPythonEnv
     yosys
     yices
     z3
